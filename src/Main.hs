@@ -26,4 +26,4 @@ makeFileName date = showGregorian (Dates.dateTimeToDay date) ++ ".plan"
 getMessage :: String -> IO String
 getMessage fileName = do
   f <- tryJust (guard . isDoesNotExistError) $ readFile fileName
-  return (either (const "You didn't make a plan for yesterday.") id f)
+  return $ either (const "You didn't make a plan for yesterday.") id f
