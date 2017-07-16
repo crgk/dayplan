@@ -1,29 +1,63 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Data.Time.Calendar (showGregorian)
-import qualified Data.Dates as Dates
+import Control.Exception (tryJust)
+import Control.Monad (guard, unless)
+import Data.Time.Format (formatTime, defaultTimeLocale)
+import Data.Time.Clock (getCurrentTime, utctDay)
+import Data.Time.Calendar (showGregorian, toGregorian, Day)
+import Data.Time.LocalTime (getCurrentTimeZone, utcToLocalTime, localDay)
 import System.IO (readFile)
 import System.IO.Error (isDoesNotExistError)
-import Control.Exception (tryJust)
-import Control.Monad (guard)
+import Text.Editor (runUserEditorDWIMFile, markdownTemplate, wrapStr)
+import System.Directory (doesDirectoryExist, createDirectoryIfMissing)
+
+planDir = "/Users/chadknight/.dayplan/plans/"
 
 main :: IO ()
 main = do
-  -- get the current date (IO from system clock?)
-  today <- Dates.getCurrentDateTime
-  -- figure out what the previous day was
-  let lastday = getLastWorkDay today
-  msg <- getMessage (makeFileName lastday)
-  putStrLn $ msg
+  today <- getToday
+  let path = makePath today
+  mkDirP path
+  let fileName = makeFileName today
+  putStrLn $ "working with " ++ fileName
+  writeFile fileName $ makePrompt today
+  stuff <- fmap wrapStr (runUserEditorDWIMFile markdownTemplate fileName)
+  putStrLn stuff
+  writeFile fileName stuff
 
-getLastWorkDay :: Dates.DateTime -> Dates.DateTime
-getLastWorkDay currentDate =
-  Dates.minusInterval currentDate (Dates.Days 1)
+getToday :: IO Day
+getToday = do
+  now <- getCurrentTime
+  timezone <- getCurrentTimeZone
+  let zoneNow = utcToLocalTime timezone now
+  return $ localDay zoneNow
 
-makeFileName :: Dates.DateTime -> String
-makeFileName date = showGregorian (Dates.dateTimeToDay date) ++ ".plan"
+showDay :: Day -> String
+showDay day = show day
+
+makeFileName :: Day -> String
+makeFileName day = (makePath day) ++ (showGregorian day) ++ ".plan"
+
+makePath :: Day -> String
+makePath day = planDir ++ (show year) ++ "/" ++ (show month) ++ "/"
+  where (year, month, _) = toGregorian day
 
 getMessage :: String -> IO String
 getMessage fileName = do
   f <- tryJust (guard . isDoesNotExistError) $ readFile fileName
   return $ either (const "You didn't make a plan for yesterday.") id f
+
+makePrompt :: Day -> String
+makePrompt day =
+  dayStr ++ "\n" ++ (duplicate "-" $ length dayStr)
+  where dayStr = showDay day
+
+duplicate :: String -> Int -> String
+duplicate string n = concat $ replicate n string
+
+mkDirP :: FilePath -> IO FilePath
+mkDirP path = do
+  ex <- doesDirectoryExist path
+  unless ex (createDirectoryIfMissing True path)
+  return path
