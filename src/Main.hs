@@ -33,20 +33,25 @@ getToday = do
   let zoneNow = utcToLocalTime timezone now
   return $ localDay zoneNow
 
-showDay :: Day -> String
-showDay day = show day
-
-makeFileName :: Day -> String
-makeFileName day = (makePath day) ++ (showGregorian day) ++ ".plan"
-
-makePath :: Day -> String
-makePath day = planDir ++ (show year) ++ "/" ++ (show month) ++ "/"
-  where (year, month, _) = toGregorian day
+mkDirP :: FilePath -> IO FilePath
+mkDirP path = do
+  ex <- doesDirectoryExist path
+  unless ex (createDirectoryIfMissing True path)
+  return path
 
 getMessage :: String -> IO String
 getMessage fileName = do
   f <- tryJust (guard . isDoesNotExistError) $ readFile fileName
   return $ either (const "You didn't make a plan for yesterday.") id f
+
+showDay :: Day -> String
+showDay day = formatTime defaultTimeLocale "%a %b %d, %Y" day
+
+makeFileName :: Day -> String
+makeFileName day = (makePath day) ++ (showGregorian day) ++ ".plan"
+
+makePath :: Day -> String
+makePath day = planDir ++ formatTime defaultTimeLocale "%Y/%m/" day
 
 makePrompt :: Day -> String
 makePrompt day =
@@ -56,8 +61,3 @@ makePrompt day =
 duplicate :: String -> Int -> String
 duplicate string n = concat $ replicate n string
 
-mkDirP :: FilePath -> IO FilePath
-mkDirP path = do
-  ex <- doesDirectoryExist path
-  unless ex (createDirectoryIfMissing True path)
-  return path
