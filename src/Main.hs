@@ -3,7 +3,7 @@ module Main where
 
 import Control.Exception (tryJust)
 import Control.Monad (guard, unless)
-import Data.Time.Format (formatTime, defaultTimeLocale)
+import Data.Time.Format (formatTime, defaultTimeLocale, parseTimeOrError)
 import Data.Time.Clock (getCurrentTime, utctDay)
 import Data.Time.Calendar (showGregorian, toGregorian, Day)
 import Data.Time.LocalTime (getCurrentTimeZone, utcToLocalTime, localDay)
@@ -12,19 +12,50 @@ import System.IO.Error (isDoesNotExistError)
 import Text.Editor (runUserEditorDWIMFile, markdownTemplate, wrapStr)
 import System.Directory (doesDirectoryExist, createDirectoryIfMissing, doesFileExist)
 
-planDir = "/Users/chadknight/.dayplan/plans/"
+dayplanPath = "/Users/chadknight/.dayplan"
+plansDir = dayplanPath ++ "/plans"
+planListPath = dayplanPath ++ "/plan.list"
 
 main :: IO ()
 main = do
+  -- make the path to today's plan
   today <- getToday
   let path = makePath today
+
+  -- make the path to the file
+  -- (only does something for new months)
   mkDirP path
+
+  -- make the absolute path for today's plan
   let fileName = makeFileName today
+
+  -- prep the file, unless already done
   ex <- doesFileExist fileName
   unless ex (writeFile fileName $ makePrompt today)
-  stuff <- fmap wrapStr (runUserEditorDWIMFile markdownTemplate fileName)
-  putStrLn stuff
-  writeFile fileName stuff
+
+  -- prompt the user for a plan, or review an existing plan
+  plan <- fmap wrapStr (runUserEditorDWIMFile markdownTemplate fileName)
+
+  -- save the plan
+  writeFile fileName plan
+
+  -- record that we planned something for today
+  addDayToList today
+
+  -- print the plan to confirm
+  putStrLn plan
+
+addDayToList :: Day -> IO ()
+addDayToList day = do
+  lastPlanned <- getLastPlannedDay
+  let planned = (lastPlanned == day)
+  unless planned (appendFile planListPath $ (showGregorian day) ++ "\n")
+
+getLastPlannedDay :: IO Day
+getLastPlannedDay = do
+  content <- readFile planListPath
+  let lastDayStr = last $ lines content
+  return $ parseTimeOrError True defaultTimeLocale "%F" lastDayStr
 
 getToday :: IO Day
 getToday = do
@@ -51,7 +82,7 @@ makeFileName :: Day -> String
 makeFileName day = (makePath day) ++ (showGregorian day) ++ ".plan"
 
 makePath :: Day -> String
-makePath day = planDir ++ formatTime defaultTimeLocale "%Y/%m/" day
+makePath day = plansDir ++ formatTime defaultTimeLocale "%Y/%m/" day
 
 makePrompt :: Day -> String
 makePrompt day =

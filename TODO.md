@@ -1,5 +1,13 @@
 # TODO
 
-- [ ] don't overwrite existing plans
-- [ ] interactive review
-- [ ] suggest unfinished previous tasks
+## features
+- [x] don't overwrite existing plans
+- [x] interactive review
+- [ ] review last plan before starting new one
+
+- [ ] custom dayplan path location
+
+## fixes
+- [ ] ensure dayplan path exists
+- [ ] init dayplan list
+- [ ] handle empty dayplan list
