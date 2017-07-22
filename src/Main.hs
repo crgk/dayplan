@@ -10,7 +10,7 @@ import Data.Time.LocalTime (getCurrentTimeZone, utcToLocalTime, localDay)
 import System.IO (readFile)
 import System.IO.Error (isDoesNotExistError)
 import Text.Editor (runUserEditorDWIMFile, markdownTemplate, wrapStr)
-import System.Directory (doesDirectoryExist, createDirectoryIfMissing)
+import System.Directory (doesDirectoryExist, createDirectoryIfMissing, doesFileExist)
 
 planDir = "/Users/chadknight/.dayplan/plans/"
 
@@ -20,8 +20,8 @@ main = do
   let path = makePath today
   mkDirP path
   let fileName = makeFileName today
-  putStrLn $ "working with " ++ fileName
-  writeFile fileName $ makePrompt today
+  ex <- doesFileExist fileName
+  unless ex (writeFile fileName $ makePrompt today)
   stuff <- fmap wrapStr (runUserEditorDWIMFile markdownTemplate fileName)
   putStrLn stuff
   writeFile fileName stuff
