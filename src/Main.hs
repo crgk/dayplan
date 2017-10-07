@@ -7,6 +7,7 @@ import Data.Time.Format (formatTime, defaultTimeLocale, parseTimeOrError)
 import Data.Time.Clock (getCurrentTime, utctDay)
 import Data.Time.Calendar (showGregorian, toGregorian, Day)
 import Data.Time.LocalTime (getCurrentTimeZone, utcToLocalTime, localDay)
+import System.Environment (getArgs)
 import System.IO (readFile)
 import System.IO.Error (isDoesNotExistError)
 import Text.Editor (runUserEditorDWIMFile, markdownTemplate, wrapStr)
@@ -22,6 +23,9 @@ main = do
   today <- getToday
   let path = makePath today
 
+  -- TODO: make some decision based on this flag
+  review <- do a <- getArgs; return $ head a
+
   -- make the path to the file
   -- (only does something for new months)
   mkDirP path
@@ -30,8 +34,14 @@ main = do
   let fileName = makeFileName today
 
   -- prep the file, unless already done
+  lastPlannedDay <- getLastPlannedDay
+  let lastFileName = makeFileName lastPlannedDay
+  lastPlan <- getPlan lastFileName
   ex <- doesFileExist fileName
-  unless ex (writeFile fileName $ makePrompt today)
+  unless ex (writeFile fileName $ initPlanText (makeHeader today))
+
+  -- show the last plan
+  runUserEditorDWIMFile lastPlan lastFileName
 
   -- prompt the user for a plan, or review an existing plan
   plan <- fmap wrapStr (runUserEditorDWIMFile markdownTemplate fileName)
@@ -47,8 +57,8 @@ main = do
 
 addDayToList :: Day -> IO ()
 addDayToList day = do
-  lastPlanned <- getLastPlannedDay
-  let planned = (lastPlanned == day)
+  lastPlannedDay <- getLastPlannedDay
+  let planned = (lastPlannedDay == day)
   unless planned (appendFile planListPath $ (showGregorian day) ++ "\n")
 
 getLastPlannedDay :: IO Day
@@ -70,10 +80,10 @@ mkDirP path = do
   unless ex (createDirectoryIfMissing True path)
   return path
 
-getMessage :: String -> IO String
-getMessage fileName = do
+getPlan :: String -> IO String
+getPlan fileName = do
   f <- tryJust (guard . isDoesNotExistError) $ readFile fileName
-  return $ either (const "You didn't make a plan for yesterday.") id f
+  return $ either (const "not found") id f
 
 showDay :: Day -> String
 showDay day = formatTime defaultTimeLocale "%a %b %d, %Y" day
@@ -82,11 +92,15 @@ makeFileName :: Day -> String
 makeFileName day = (makePath day) ++ (showGregorian day) ++ ".plan"
 
 makePath :: Day -> String
-makePath day = plansDir ++ formatTime defaultTimeLocale "%Y/%m/" day
+makePath day = plansDir ++ formatTime defaultTimeLocale "/%Y/%m/" day
 
-makePrompt :: Day -> String
-makePrompt day =
-  dayStr ++ "\n" ++ (duplicate "-" $ length dayStr)
+initPlanText :: String -> String
+initPlanText header =
+  header ++ "\n"
+
+makeHeader :: Day -> String
+makeHeader day =
+  dayStr ++ "\n" ++ (duplicate "-" $ length dayStr) ++ "\n"
   where dayStr = showDay day
 
 duplicate :: String -> Int -> String
