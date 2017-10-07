@@ -3,7 +3,7 @@
 ## features
 - [x] don't overwrite existing plans
 - [x] interactive review
-- [ ] review last plan before starting new one
+- [o] review last plan before starting new one
 
 - [ ] custom dayplan path location
 

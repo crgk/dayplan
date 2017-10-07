@@ -2,7 +2,7 @@
 module Main where
 
 import Control.Exception (tryJust)
-import Control.Monad (guard, unless)
+import Control.Monad (guard, unless, when, void)
 import Data.Time.Format (formatTime, defaultTimeLocale, parseTimeOrError)
 import Data.Time.Clock (getCurrentTime, utctDay)
 import Data.Time.Calendar (showGregorian, toGregorian, Day)
@@ -19,12 +19,11 @@ planListPath = dayplanPath ++ "/plan.list"
 
 main :: IO ()
 main = do
+  args <- getArgs
+
   -- make the path to today's plan
   today <- getToday
   let path = makePath today
-
-  -- TODO: make some decision based on this flag
-  review <- do a <- getArgs; return $ head a
 
   -- make the path to the file
   -- (only does something for new months)
@@ -34,14 +33,14 @@ main = do
   let fileName = makeFileName today
 
   -- prep the file, unless already done
-  lastPlannedDay <- getLastPlannedDay
-  let lastFileName = makeFileName lastPlannedDay
-  lastPlan <- getPlan lastFileName
   ex <- doesFileExist fileName
   unless ex (writeFile fileName $ initPlanText (makeHeader today))
 
-  -- show the last plan
-  runUserEditorDWIMFile lastPlan lastFileName
+  -- show the last plan, if in review mode
+  lastPlannedDay <- getLastPlannedDay
+  let lastFileName = makeFileName lastPlannedDay
+  lastPlan <- getPlan lastFileName
+  when (elem "-review" args) (void $ runUserEditorDWIMFile lastPlan lastFileName)
 
   -- prompt the user for a plan, or review an existing plan
   plan <- fmap wrapStr (runUserEditorDWIMFile markdownTemplate fileName)
