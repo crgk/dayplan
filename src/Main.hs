@@ -3,15 +3,18 @@ module Main where
 
 import Control.Exception (tryJust)
 import Control.Monad (guard, unless, when, void)
+import Data.String.Conv (toS)
 import Data.Time.Format (formatTime, defaultTimeLocale, parseTimeOrError)
 import Data.Time.Clock (getCurrentTime, utctDay)
 import Data.Time.Calendar (showGregorian, toGregorian, Day)
 import Data.Time.LocalTime (getCurrentTimeZone, utcToLocalTime, localDay)
+import System.Directory (doesDirectoryExist, createDirectoryIfMissing, doesFileExist)
 import System.Environment (getArgs)
 import System.IO (readFile)
 import System.IO.Error (isDoesNotExistError)
 import Text.Editor (runUserEditorDWIMFile, markdownTemplate, wrapStr)
-import System.Directory (doesDirectoryExist, createDirectoryIfMissing, doesFileExist)
+import qualified Data.ByteString as Str
+import qualified Data.ByteString.Char8 as StrChar
 
 dayplanPath = "/Users/chadknight/.dayplan"
 plansDir = dayplanPath ++ "/plans"
@@ -62,8 +65,9 @@ addDayToList day = do
 
 getLastPlannedDay :: IO Day
 getLastPlannedDay = do
-  content <- readFile planListPath
-  let lastDayStr = last $ lines content
+  content <- Str.readFile planListPath
+  let lastDayByteStr = last $ StrChar.lines content
+  let lastDayStr = toS lastDayByteStr
   return $ parseTimeOrError True defaultTimeLocale "%F" lastDayStr
 
 getToday :: IO Day
@@ -81,8 +85,8 @@ mkDirP path = do
 
 getPlan :: String -> IO String
 getPlan fileName = do
-  f <- tryJust (guard . isDoesNotExistError) $ readFile fileName
-  return $ either (const "not found") id f
+  f <- tryJust (guard . isDoesNotExistError) $ Str.readFile fileName
+  return $ toS (either (const "not found") id f)
 
 showDay :: Day -> String
 showDay day = formatTime defaultTimeLocale "%a %b %d, %Y" day
